@@ -1,1 +1,46 @@
-this RAG chatbot will be for a business 
+Employee
+    |
+    v
+Web Interface (React)
+    |
+    v
+FastAPI Backend
+    |
+    +----------------------+
+    |                      |
+    v                      v
+SQL Server           Document Store
+(Transaction DB)     (Logs, TXT, PDFs)
+    |                      |
+    +----------+-----------+
+               |
+               v
+      Retrieval Layer
+      (Vector Database)
+               |
+               v
+          LLM Agent
+       (GPT / Claude)
+               |
+               v
+          Investigation
+           Response
+
+
+This will be an Agentic RAG chatbot
+
+Question
+   |
+   v
+Agent
+   |
+   +--> SQL Search
+   |
+   +--> Log Search
+   |
+   +--> Document Search
+   |
+   +--> Correlation
+   |
+   v
+Answer
