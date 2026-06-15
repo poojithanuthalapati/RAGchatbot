@@ -44,3 +44,25 @@ Agent
    |
    v
 Answer
+
+
+
+Phase 1
+
+React chat UI
+FastAPI backend
+SQL Server connection
+OpenAI API
+Error log search
+
+Phase 2
+
+Vector database
+PDF ingestion
+Root cause summaries
+
+Phase 3
+
+Multi-step AI agent
+Automated investigations
+Case report generation
