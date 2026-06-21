@@ -1,68 +1,33 @@
-Employee
-    |
-    v
-Web Interface (React)
-    |
-    v
-FastAPI Backend
-    |
-    +----------------------+
-    |                      |
-    v                      v
-SQL Server           Document Store
-(Transaction DB)     (Logs, TXT, PDFs)
-    |                      |
-    +----------+-----------+
-               |
-               v
-      Retrieval Layer
-      (Vector Database)
-               |
-               v
-          LLM Agent
-       (GPT / Claude)
-               |
-               v
-          Investigation
-           Response
+                ┌────────────────────┐
+                │   React Frontend   │
+                │    Chat Interface  │
+                └─────────┬──────────┘
+                          │
+                          ▼
+                ┌────────────────────┐
+                │   FastAPI Backend  │
+                └─────────┬──────────┘
+                          │
+                          ▼
+                ┌────────────────────┐
+                │   Agent Layer      │
+                │  (OpenAI Agent)    │
+                └──────┬─────┬───────┘
+                       │     │
+         ┌─────────────┘     └─────────────┐
+         ▼                                 ▼
+
+┌─────────────────┐            ┌─────────────────┐
+│ SQL Tool        │            │ Vector Tool     │
+│ SQLite          │            │ ChromaDB        │
+│ Eviction Data   │            │ PDF Documents   │
+└────────┬────────┘            └────────┬────────┘
+         │                              │
+         ▼                              ▼
+
+  Structured Data              Court Orders
+  Zip Codes                    Legal Documents
+  Filing Counts                Policies
+  Trends                       AZ Tenant Laws
 
 
-This will be an Agentic RAG chatbot
-
-Question
-   |
-   v
-Agent
-   |
-   +--> SQL Search
-   |
-   +--> Log Search
-   |
-   +--> Document Search
-   |
-   +--> Correlation
-   |
-   v
-Answer
-
-
-
-Phase 1
-
-React chat UI
-FastAPI backend
-SQL Server connection
-OpenAI API
-Error log search
-
-Phase 2
-
-Vector database
-PDF ingestion
-Root cause summaries
-
-Phase 3
-
-Multi-step AI agent
-Automated investigations
-Case report generation
