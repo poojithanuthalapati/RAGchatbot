@@ -1,0 +1,35 @@
+simple rag chatbot for the evictions project
+
+    user
+     |
+    NLP
+     |
+    intent clasifier
+     |
+stats/      researchers
+data?            Q?
+  |              |
+Pandas         vector search
+analysis        (RAG)
+            |
+            AI API
+             |
+            Output
+
+
+2 step project
+
+part 1
+
+data -> pdfs
+
+pdfs
+embeddings
+store in ChromaDB
+user asks questions
+retrive relevent Chunks
+GPT generates answers with citations
+
+part 2
+
+data -> excel sheets
