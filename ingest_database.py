@@ -1,33 +1,36 @@
+```python
 from langchain_community.document_loaders import PyPDFDirectoryLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_openai.embeddings import OpenAIEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from uuid import uuid4
+import os
 
-# import the .env file
+# Import the .env file
 from dotenv import load_dotenv
 load_dotenv()
 
-# configuration
-DATA_PATH = r"data"
-CHROMA_PATH = r"chroma_db"
+# Configuration
+DATA_PATH = "data"
+CHROMA_PATH = "chroma_db"
 
-# initiate the embeddings model
-embeddings_model = OpenAIEmbeddings(model="text-embedding-3-large")
+# Initialize a LOCAL embedding model
+embeddings_model = HuggingFaceEmbeddings(
+    model_name="sentence-transformers/all-MiniLM-L6-v2"
+)
 
-# initiate the vector store
+# Initialize the vector store
 vector_store = Chroma(
     collection_name="example_collection",
     embedding_function=embeddings_model,
     persist_directory=CHROMA_PATH,
 )
 
-# loading the PDF document
+# Load PDF documents
 loader = PyPDFDirectoryLoader(DATA_PATH)
-
 raw_documents = loader.load()
 
-# splitting the document
+# Split documents into chunks
 text_splitter = RecursiveCharacterTextSplitter(
     chunk_size=300,
     chunk_overlap=100,
@@ -35,11 +38,16 @@ text_splitter = RecursiveCharacterTextSplitter(
     is_separator_regex=False,
 )
 
-# creating the chunks
 chunks = text_splitter.split_documents(raw_documents)
 
-# creating unique ID's
+# Create unique IDs
 uuids = [str(uuid4()) for _ in range(len(chunks))]
 
-# adding chunks to vector store
-vector_store.add_documents(documents=chunks, ids=uuids)
+# Add chunks to Chroma
+vector_store.add_documents(
+    documents=chunks,
+    ids=uuids
+)
+
+print(f"Successfully added {len(chunks)} chunks to Chroma.")
+```
