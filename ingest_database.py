@@ -1,4 +1,3 @@
-```python
 from langchain_community.document_loaders import PyPDFDirectoryLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -50,4 +49,4 @@ vector_store.add_documents(
 )
 
 print(f"Successfully added {len(chunks)} chunks to Chroma.")
-```
+

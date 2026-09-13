@@ -1,9 +1,10 @@
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_chroma import Chroma
-from langchain_openai import ChatOpenAI
-from dotenv import load_dotenv
 import os
 import gradio as gr
+
+from dotenv import load_dotenv
+from langchain_openai import ChatOpenAI
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_chroma import Chroma
 
 load_dotenv()
 
@@ -16,9 +17,9 @@ embeddings_model = HuggingFaceEmbeddings(
 
 # Initiate Grok
 llm = ChatOpenAI(
-    api_key=os.getenv("XAI_API_KEY"),
-    base_url="https://api.x.ai/v1",
-    model="grok-4.3"
+    api_key=os.getenv("GROQ_API_KEY"),
+    base_url="https://api.groq.com/openai/v1",
+    model="openai/gpt-oss-20b"
 )
 
 # Connect to ChromaDB
