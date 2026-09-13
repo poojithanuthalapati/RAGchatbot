@@ -1,0 +1,172 @@
+import uuid
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
+from rag import (
+    extract_text,
+    chunk_text,
+    embed_texts,
+    embed_single,
+    generate_answer,
+    match_resume_to_jd,
+    generate_suggestions,
+)
+from database import (
+    insert_document_chunks,
+    search_similar_chunks,
+    save_chat_turn,
+    insert_resume,
+    insert_resume_chunks,
+    insert_job_posting,
+    insert_job_posting_chunks,
+    get_resume_chunks,
+    get_job_posting_chunks,
+    insert_analysis,
+)
+
+app = FastAPI(title="RAG Chatbot API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # tighten this before deploying
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+class ChatRequest(BaseModel):
+    session_id: str | None = None
+    message: str
+    top_k: int = 4
+
+
+class JobPostingRequest(BaseModel):
+    session_id: str | None = None
+    title: str | None = None
+    text: str
+
+
+class AnalyzeRequest(BaseModel):
+    resume_id: int
+    job_posting_id: int
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
+@app.post("/ingest")
+async def ingest_document(file: UploadFile = File(...)):
+    """Upload a PDF or text file: extract -> chunk -> embed -> store."""
+    file_bytes = await file.read()
+    text = extract_text(file.filename, file_bytes)
+
+    if not text.strip():
+        raise HTTPException(status_code=400, detail="No extractable text found in file.")
+
+    chunks = chunk_text(text)
+    if not chunks:
+        raise HTTPException(status_code=400, detail="Document produced no chunks.")
+
+    embeddings = embed_texts(chunks)
+    insert_document_chunks(source=file.filename, chunks=chunks, embeddings=embeddings)
+
+    return {"source": file.filename, "chunks_stored": len(chunks)}
+
+
+@app.post("/resumes")
+async def upload_resume(session_id: str = "default", file: UploadFile = File(...)):
+    """Upload a resume: extract -> chunk -> embed -> store, chunk-level."""
+    file_bytes = await file.read()
+    text = extract_text(file.filename, file_bytes)
+    if not text.strip():
+        raise HTTPException(status_code=400, detail="No extractable text found in resume.")
+
+    resume_id = insert_resume(session_id, file.filename, text)
+
+    chunks = chunk_text(text)
+    embeddings = embed_texts(chunks)
+    insert_resume_chunks(resume_id, chunks, embeddings)
+
+    return {"resume_id": resume_id, "chunks_stored": len(chunks)}
+
+
+@app.post("/job-postings")
+def create_job_posting(req: JobPostingRequest):
+    """Store a pasted job description: chunk -> embed -> store, chunk-level."""
+    if not req.text.strip():
+        raise HTTPException(status_code=400, detail="Job posting text cannot be empty.")
+
+    job_posting_id = insert_job_posting(req.session_id or "default", req.title, req.text)
+
+    chunks = chunk_text(req.text)
+    embeddings = embed_texts(chunks)
+    insert_job_posting_chunks(job_posting_id, chunks, embeddings)
+
+    return {"job_posting_id": job_posting_id, "chunks_stored": len(chunks)}
+
+
+@app.post("/analyze")
+def analyze(req: AnalyzeRequest):
+    """
+    Compare a stored resume against a stored job posting:
+    - chunk-to-chunk similarity -> overall score
+    - identify weak resume bullets and uncovered JD requirements
+    - ask Grok for concrete rewrite suggestions
+    - store the result in `analyses` (this is what the Snowflake pipeline will read)
+    """
+    resume_chunks = get_resume_chunks(req.resume_id)
+    jd_chunks = get_job_posting_chunks(req.job_posting_id)
+
+    if not resume_chunks:
+        raise HTTPException(status_code=404, detail=f"No resume found with id {req.resume_id}")
+    if not jd_chunks:
+        raise HTTPException(status_code=404, detail=f"No job posting found with id {req.job_posting_id}")
+
+    match_result = match_resume_to_jd(resume_chunks, jd_chunks)
+    suggestions = generate_suggestions(
+        match_result["weak_resume_chunks"], match_result["uncovered_jd_chunks"]
+    )
+
+    analysis_id = insert_analysis(
+        resume_id=req.resume_id,
+        job_posting_id=req.job_posting_id,
+        overall_score=match_result["overall_score"],
+        weak_resume_chunks=match_result["weak_resume_chunks"],
+        uncovered_jd_chunks=match_result["uncovered_jd_chunks"],
+        suggestions=suggestions,
+    )
+
+    return {
+        "analysis_id": analysis_id,
+        "overall_score": match_result["overall_score"],
+        "weak_resume_chunks": match_result["weak_resume_chunks"],
+        "uncovered_jd_chunks": match_result["uncovered_jd_chunks"],
+        "suggestions": suggestions,
+    }
+
+
+@app.post("/chat")
+def chat(req: ChatRequest):
+    session_id = req.session_id or str(uuid.uuid4())
+
+    query_embedding = embed_single(req.message)
+    retrieved = search_similar_chunks(query_embedding, top_k=req.top_k)
+
+    if not retrieved:
+        answer = "I don't have any documents to search yet — try uploading one first."
+        doc_ids = []
+    else:
+        answer = generate_answer(req.message, retrieved)
+        doc_ids = [c["id"] for c in retrieved]
+
+    save_chat_turn(session_id, "user", req.message)
+    save_chat_turn(session_id, "assistant", answer, retrieved_doc_ids=doc_ids)
+
+    return {
+        "session_id": session_id,
+        "answer": answer,
+        "retrieved_chunks": retrieved,
+    }

@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>RAG Chatbot</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --border: #2a2e38;
+    --text: #e8e9ec;
+    --muted: #9198a8;
+    --accent: #5b8cff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+  header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  #upload-area {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  #upload-area label {
+    font-size: 13px;
+    color: var(--muted);
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  #upload-status { font-size: 12px; color: var(--muted); }
+  #chat {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-width: 760px;
+    width: 100%;
+    margin: 0 auto;
+  }
+  .msg {
+    padding: 10px 14px;
+    border-radius: 10px;
+    max-width: 80%;
+    line-height: 1.45;
+    font-size: 14px;
+    white-space: pre-wrap;
+  }
+  .user { align-self: flex-end; background: var(--accent); color: white; }
+  .assistant { align-self: flex-start; background: var(--panel); border: 1px solid var(--border); }
+  form {
+    display: flex;
+    gap: 10px;
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    max-width: 760px;
+    width: 100%;
+    margin: 0 auto;
+  }
+  input[type=text] {
+    flex: 1;
+    padding: 12px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    font-size: 14px;
+  }
+  button {
+    padding: 12px 20px;
+    border-radius: 8px;
+    border: none;
+    background: var(--accent);
+    color: white;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.5; cursor: default; }
+  nav {
+    display: flex;
+    gap: 4px;
+    padding: 8px 24px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  nav button {
+    background: transparent;
+    color: var(--muted);
+    padding: 10px 16px;
+    border-radius: 6px 6px 0 0;
+  }
+  nav button.active { color: var(--text); border-bottom: 2px solid var(--accent); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+  #analyzer {
+    max-width: 760px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 24px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  #analyzer textarea {
+    width: 100%;
+    min-height: 120px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    font-size: 14px;
+    resize: vertical;
+  }
+  #analyzer label { font-size: 13px; color: var(--muted); }
+  #score-display {
+    font-size: 32px;
+    font-weight: 600;
+    color: var(--accent);
+  }
+  .suggestion {
+    padding: 12px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .suggestion b { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>RAG Chatbot</h1>
+</header>
+
+<nav>
+  <button id="tab-chat-btn" class="active" onclick="showTab('chat-tab')">Chat</button>
+  <button id="tab-analyzer-btn" onclick="showTab('analyzer-tab')">Resume analyzer</button>
+</nav>
+
+<div id="chat-tab" class="tab-panel active">
+  <div id="upload-area" style="padding: 12px 24px; display:flex; gap:8px; align-items:center; justify-content:flex-end;">
+    <label>
+      Upload document
+      <input type="file" id="file-input" accept=".pdf,.txt" style="display:none" />
+    </label>
+    <span id="upload-status"></span>
+  </div>
+  <div id="chat"></div>
+  <form id="chat-form">
+    <input type="text" id="message-input" placeholder="Ask something about your uploaded documents..." autocomplete="off" />
+    <button type="submit">Send</button>
+  </form>
+</div>
+
+<div id="analyzer-tab" class="tab-panel">
+  <div id="analyzer">
+    <label>Resume (PDF or .txt)</label>
+    <input type="file" id="resume-file" accept=".pdf,.txt" />
+
+    <label>Job description</label>
+    <textarea id="jd-text" placeholder="Paste the full job description here..."></textarea>
+
+    <button id="analyze-btn" onclick="runAnalysis()">Analyze match</button>
+
+    <div id="analysis-results" style="display:none; flex-direction:column; gap:16px;">
+      <div>
+        <div style="font-size:13px;color:var(--muted)">Match score</div>
+        <div id="score-display"></div>
+      </div>
+      <div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:8px">Suggestions</div>
+        <div id="suggestions-list" style="display:flex;flex-direction:column;gap:10px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API_BASE = "http://localhost:8000";
+  let sessionId = null;
+
+  const chatEl = document.getElementById("chat");
+  const formEl = document.getElementById("chat-form");
+  const inputEl = document.getElementById("message-input");
+  const fileInput = document.getElementById("file-input");
+  const uploadStatus = document.getElementById("upload-status");
+
+  function addMessage(role, content) {
+    const div = document.createElement("div");
+    div.className = `msg ${role}`;
+    div.textContent = content;
+    chatEl.appendChild(div);
+    chatEl.scrollTop = chatEl.scrollHeight;
+  }
+
+  fileInput.addEventListener("change", async () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    uploadStatus.textContent = "Uploading...";
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const res = await fetch(`${API_BASE}/ingest`, { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Upload failed");
+      uploadStatus.textContent = `Indexed ${data.chunks_stored} chunks from ${data.source}`;
+    } catch (err) {
+      uploadStatus.textContent = `Error: ${err.message}`;
+    }
+  });
+
+  formEl.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const message = inputEl.value.trim();
+    if (!message) return;
+
+    addMessage("user", message);
+    inputEl.value = "";
+    inputEl.disabled = true;
+
+    try {
+      const res = await fetch(`${API_BASE}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: sessionId, message }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Chat failed");
+      sessionId = data.session_id;
+      addMessage("assistant", data.answer);
+    } catch (err) {
+      addMessage("assistant", `Error: ${err.message}`);
+    } finally {
+      inputEl.disabled = false;
+      inputEl.focus();
+    }
+  });
+
+  function showTab(tabId) {
+    document.querySelectorAll(".tab-panel").forEach(el => el.classList.remove("active"));
+    document.querySelectorAll("nav button").forEach(el => el.classList.remove("active"));
+    document.getElementById(tabId).classList.add("active");
+    document.getElementById(tabId === "chat-tab" ? "tab-chat-btn" : "tab-analyzer-btn").classList.add("active");
+  }
+
+  async function runAnalysis() {
+    const resumeFile = document.getElementById("resume-file").files[0];
+    const jdText = document.getElementById("jd-text").value.trim();
+    const btn = document.getElementById("analyze-btn");
+    const resultsEl = document.getElementById("analysis-results");
+
+    if (!resumeFile || !jdText) {
+      alert("Please provide both a resume file and a job description.");
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = "Analyzing...";
+
+    try {
+      // 1. Upload resume
+      const resumeForm = new FormData();
+      resumeForm.append("file", resumeFile);
+      const resumeRes = await fetch(`${API_BASE}/resumes?session_id=${sessionId || "default"}`, {
+        method: "POST",
+        body: resumeForm,
+      });
+      const resumeData = await resumeRes.json();
+      if (!resumeRes.ok) throw new Error(resumeData.detail || "Resume upload failed");
+
+      // 2. Store job posting
+      const jdRes = await fetch(`${API_BASE}/job-postings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: sessionId || "default", text: jdText }),
+      });
+      const jdData = await jdRes.json();
+      if (!jdRes.ok) throw new Error(jdData.detail || "Job posting failed");
+
+      // 3. Run analysis
+      const analyzeRes = await fetch(`${API_BASE}/analyze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resume_id: resumeData.resume_id, job_posting_id: jdData.job_posting_id }),
+      });
+      const analysisData = await analyzeRes.json();
+      if (!analyzeRes.ok) throw new Error(analysisData.detail || "Analysis failed");
+
+      // Render results
+      document.getElementById("score-display").textContent = `${analysisData.overall_score}%`;
+      const listEl = document.getElementById("suggestions-list");
+      listEl.innerHTML = "";
+      analysisData.suggestions.forEach(s => {
+        const div = document.createElement("div");
+        div.className = "suggestion";
+        div.innerHTML = `<b>${s.area}</b><br>${s.suggestion}`;
+        listEl.appendChild(div);
+      });
+      resultsEl.style.display = "flex";
+    } catch (err) {
+      alert(`Error: ${err.message}`);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Analyze match";
+    }
+  }
+</script>
+
+</body>
+</html>

@@ -1,33 +1,18 @@
                 ┌────────────────────┐
-                │   React Frontend   │
-                │    Chat Interface  │
+                │   upload resumes   │
+                │   &jobdescription  │
                 └─────────┬──────────┘
                           │
                           ▼
                 ┌────────────────────┐
-                │   FastAPI Backend  │
+                │   Run Analysis     │
                 └─────────┬──────────┘
                           │
                           ▼
                 ┌────────────────────┐
-                │   Agent Layer      │
-                │  (OpenAI Agent)    │
+                │   Score and        │
+                │  suggestionback    │
                 └──────┬─────┬───────┘
-                       │     │
-         ┌─────────────┘     └─────────────┐
-         ▼                                 ▼
 
-┌─────────────────┐            ┌─────────────────┐
-│ SQL Tool        │            │ Vector Tool     │
-│ SQLite          │            │ ChromaDB        │
-│ Eviction Data   │            │ PDF Documents   │
-└────────┬────────┘            └────────┬────────┘
-         │                              │
-         ▼                              ▼
-
-  Structured Data              Court Orders
-  Zip Codes                    Legal Documents
-  Filing Counts                Policies
-  Trends                       AZ Tenant Laws
 
 
